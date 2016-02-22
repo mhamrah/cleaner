@@ -8,16 +8,23 @@ import (
 	"os"
 )
 
+var c *int
+
 func main() {
 	var infile = flag.String("i", "", "input file to read")
 	var outfile = flag.String("o", "out.dat", "output file to write")
-	var l = flag.Int("l", 1024, "record length")
+	var l = flag.Int("l", 1024, "record length including header, must be > 20")
+	c = flag.Int("c", 0, "lookahead length excluding header must be <= record length - 20")
 
 	flag.Parse()
 
-	if len(*infile) == 0 || len(*outfile) == 0 || *l <= 0 {
+	if len(*infile) == 0 || len(*outfile) == 0 || *l <= 20 || *c >= *l-20 {
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if *c == 0 {
+		*c = *l - 20
 	}
 
 	in, err := os.Open(*infile)
@@ -35,26 +42,38 @@ func main() {
 	reader := bufio.NewReader(in)
 	writer := bufio.NewWriter(out)
 	data := make([]byte, *l)
-	count := 1
+	nullCount, copyCount := 0, 0
 
-	for count > 0 {
-		count, err := reader.Read(data)
+	byteCount, err := reader.Read(data)
+	if err != nil && err != io.EOF {
+		fmt.Printf("Failed to copy control record. err:", err)
+		os.Exit(1)
+	}
+
+	out.Write(data[:byteCount])
+
+	for byteCount > 0 {
+		byteCount, err := reader.Read(data)
 		if err != nil && err != io.EOF {
 			fmt.Printf("Failed to read input data stream. err: %v\n", err)
 			os.Exit(1)
 		}
 
-		if count == 0 {
+		if byteCount == 0 {
 			writer.Flush()
-			fmt.Printf("Read all bytes from %v\n", *infile)
+			fmt.Printf("Read all bytes from file %v. Encounterd %v null records and copied %v.\n", *infile, nullCount, copyCount)
 			return
 		}
 
-		if validRecord(data, count) {
-			fmt.Printf("Copying %d length records from %s to %s\n", *l, *infile, *outfile)
-			out.Write(data[:count])
+		if validRecord(data, byteCount) {
+			out.Write(data[:byteCount])
+			copyCount += 1
 		} else {
-			fmt.Printf("Skipping null record.\n")
+			nullCount += 1
+		}
+
+		if (nullCount+copyCount)%1000 == 0 {
+			fmt.Printf("In progress. Copied %v records and encountered %v null records.\n", copyCount, nullCount)
 		}
 	}
 
@@ -67,11 +86,11 @@ func validRecord(data []byte, count int) bool {
 	if data[0] == '\x00' {
 		return false
 	}
-	lookahead := count / 4
-	for i := 20; i < 20+lookahead; i++ {
-		if data[i] == '\x00' {
-			return false
+	for i := 20; i < 20+*c; i++ {
+		if data[i] != '\x20' {
+			return true
 		}
 	}
-	return true
+
+	return false
 }
