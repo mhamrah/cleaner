@@ -18,7 +18,7 @@ func main() {
 
 	flag.Parse()
 
-	if len(*infile) == 0 || len(*outfile) == 0 || *l <= 20 || *c >= *l-20 {
+	if len(*infile) == 0 || len(*outfile) == 0 || *l <= 20 || *c > *l-20 {
 		flag.Usage()
 		os.Exit(1)
 	}
