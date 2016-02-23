@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	printf("Copied %d records and skipped %d null records.", numRecords, nullRecords-1);
+	printf("Copied %d records and skipped %d null records.\n", numRecords, nullRecords-1);
 	fclose(in);
 	fclose(out);
 
