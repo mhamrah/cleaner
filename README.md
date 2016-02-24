@@ -23,5 +23,3 @@ Flags:
 * -i, the input file
 * -o, the outfile file (default out.dat)
 * -l, the total record length, including headers (default 1024)
-
-
